@@ -72,6 +72,9 @@ logs/
 .DS_Store
 Thumbs.db
 
+# Claude Code local settings (contains private data)
+.claude/settings.local.json
+
 # Testing
 .pytest_cache/
 .coverage
