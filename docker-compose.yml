@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: sg-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请在 .env.docker 中设置 POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-software_guard}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-software_guard}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - sg-network
+    shm_size: 256m
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sg-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-software_guard}
+      SECRET_KEY: ${SECRET_KEY:?请在 .env.docker 中设置 SECRET_KEY}
+      FIRST_ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      FIRST_ADMIN_PASSWORD: ${ADMIN_PASSWORD:?请在 .env.docker 中设置 ADMIN_PASSWORD}
+      FIRST_ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@company.com}
+      STORAGE_PATH: storage
+      DEBUG: "false"
+    volumes:
+      - app-storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sg-network
+
+volumes:
+  pgdata:
+    driver: local
+  app-storage:
+    driver: local
+
+networks:
+  sg-network:
+    driver: bridge

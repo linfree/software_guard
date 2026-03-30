@@ -206,7 +206,76 @@ software_guard/
 
 ## 🚀 快速开始
 
-### 📦 前置要求
+### 🐳 Docker 部署（推荐）
+
+最简单的部署方式，一条命令启动全部服务（应用 + 数据库）。
+
+**前置要求：** 已安装 [Docker](https://docs.docker.com/get-docker/) 和 [Docker Compose](https://docs.docker.com/compose/install/)
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/your-org/software_guard.git
+cd software_guard
+
+# 2. 创建环境配置文件
+cp .env.docker.example .env.docker
+
+# 3. 编辑 .env.docker，必须修改以下变量：
+#    - POSTGRES_PASSWORD  数据库密码（至少16位强密码）
+#    - SECRET_KEY         JWT 密钥（可用 python -c "import secrets; print(secrets.token_hex(32))" 生成）
+#    - ADMIN_PASSWORD     管理员密码（至少12位强密码）
+nano .env.docker
+
+# 4. 启动服务（后台运行）
+docker compose --env-file .env.docker up -d
+
+# 5. 查看运行状态
+docker compose ps
+
+# 6. 查看日志
+docker compose logs -f app
+```
+
+启动完成后访问 **http://localhost:8000** 即可使用。
+
+**常用管理命令：**
+
+```bash
+# 停止服务
+docker compose down
+
+# 停止并删除数据卷（⚠️ 会清除所有数据）
+docker compose down -v
+
+# 重新构建并启动
+docker compose up -d --build
+
+# 仅构建镜像
+docker build -t software-guard .
+```
+
+#### 仅构建应用镜像（不含数据库）
+
+如果已有外部 PostgreSQL 数据库，可以单独运行应用容器：
+
+```bash
+docker build -t software-guard .
+
+docker run -d \
+  --name sg-app \
+  -p 8000:8000 \
+  -e DATABASE_URL=postgresql://user:password@your-db-host:5432/software_guard \
+  -e SECRET_KEY=your-random-secret-key \
+  -e ADMIN_PASSWORD=your-admin-password \
+  -v sg-storage:/app/storage \
+  software-guard
+```
+
+---
+
+### 🔧 本地开发
+
+**前置要求：**
 
 | 要求 | 版本 | 说明 |
 |------|------|------|
@@ -216,7 +285,7 @@ software_guard/
 | uv | 最新 | Python 包管理器 |
 | pnpm | 最新 | Node.js 包管理器 |
 
-### 🔧 后端设置
+#### 后端设置
 
 ```bash
 # 1. 进入后端目录
@@ -241,7 +310,7 @@ uv run python main.py
 
 API 文档访问：**http://localhost:8000/docs** 📚
 
-### 💻 前端设置
+#### 前端设置
 
 ```bash
 # 1. 进入前端目录
@@ -256,16 +325,18 @@ pnpm dev
 
 前端服务运行在 **http://localhost:5173**
 
+---
+
 ### 👤 默认账号
 
-首次启动自动创建管理员账号：
+首次启动自动创建管理员账号（可在环境变量中自定义）：
 
 ```
 用户名: admin
-密码: admin123
+密码: （见 .env.docker 中的 ADMIN_PASSWORD 配置）
 ```
 
-⚠️ **登录后请立即修改密码！**
+> ⚠️ **生产环境请务必使用强密码，登录后建议立即修改！**
 
 ---
 
@@ -351,12 +422,12 @@ GET    /api/vulnerabilities/check/{id}/{version}      # 检查漏洞
 - [x] 漏洞追踪与通知
 - [x] 软件申请工作流
 - [x] AI 智能审核功能
+- [x] Docker 容器化部署
 
 ### 计划中 🚧
 - [ ] 邮件通知功能
 - [ ] 软件评分与评论
 - [ ] 文件病毒扫描集成
-- [ ] Docker 部署支持
 - [ ] CI/CD 流水线
 - [ ] 软件自动更新检测
 - [ ] 移动端适配

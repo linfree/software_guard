@@ -1,0 +1,16 @@
+.git
+.gitignore
+.claude
+docs
+*.md
+*.bat
+*.png
+*.jpg
+*.jpeg
+backend/storage/*
+backend/.env
+backend/__pycache__
+backend/app/__pycache__
+frontend/node_modules
+frontend/dist
+.trae

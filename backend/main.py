@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 import os
 
@@ -82,15 +83,34 @@ app.include_router(config_router, prefix="/api")
 app.include_router(category_router, prefix="/api")
 
 
-@app.get("/")
-async def root():
-    return {
-        "name": settings.APP_NAME,
-        "version": settings.APP_VERSION,
-        "status": "running"
-    }
+# 挂载前端静态文件（Docker 部署时使用）
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+if os.path.isdir(STATIC_DIR):
+    app.mount("/assets", StaticFiles(directory=os.path.join(STATIC_DIR, "assets")), name="static-assets")
 
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy"}
 
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
+    @app.get("/api")
+    async def api_root():
+        return {"message": "Software Guard API"}
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(request: Request, full_path: str):
+        file_path = os.path.join(STATIC_DIR, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+else:
+    @app.get("/")
+    async def root():
+        return {
+            "name": settings.APP_NAME,
+            "version": settings.APP_VERSION,
+            "status": "running"
+        }
+
+    @app.get("/health")
+    async def health_check():
+        return {"status": "healthy"}
