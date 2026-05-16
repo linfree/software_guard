@@ -7,7 +7,7 @@
         <div class="header-left">
           <RouterLink to="/" class="logo">
             <AppstoreOutlined class="logo-icon" />
-            <span class="logo-text">Software Guard</span>
+            <span class="logo-text">{{ siteStore.name }}</span>
           </RouterLink>
 
           <a-menu
@@ -80,9 +80,9 @@
     <!-- 底部 -->
     <a-layout-footer class="app-footer">
       <div class="footer-content">
-        <span>Software Guard © 2024</span>
+        <span>{{ siteStore.name }} © 2024</span>
         <span class="footer-divider">|</span>
-        <span>公司内部软件下载站</span>
+        <span>{{ siteStore.description }}</span>
       </div>
     </a-layout-footer>
   </a-layout>
@@ -101,10 +101,12 @@ import {
   LogoutOutlined
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { useSiteStore } from '@/stores/site'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const siteStore = useSiteStore()
 
 const selectedKeys = ref([])
 

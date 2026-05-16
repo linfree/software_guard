@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -9,7 +9,7 @@ import os
 import shutil
 
 from app.core.config import settings
-from app.core.database import engine, Base
+from app.core.database import engine, Base, get_db
 from app.api import (
     auth_router,
     software_router,
@@ -120,6 +120,20 @@ app.include_router(stats_router, prefix="/api")
 app.include_router(config_router, prefix="/api")
 app.include_router(upload_router, prefix="/api")
 app.include_router(category_router, prefix="/api")
+
+
+# 公开的站点信息接口（无需认证）
+@app.get("/api/site/info")
+async def site_info(db=Depends(get_db)):
+    """获取站点名称和描述（公开接口）"""
+    from app.models.config import Config
+    from sqlalchemy.orm import Session as _Session
+    name_cfg = db.query(Config).filter(Config.key == "site_name").first()
+    desc_cfg = db.query(Config).filter(Config.key == "site_description").first()
+    return {
+        "name": name_cfg.value if name_cfg else settings.APP_NAME,
+        "description": desc_cfg.value if desc_cfg else "公司内网软件下载站"
+    }
 
 
 # 挂载前端静态文件（Docker 部署时使用）

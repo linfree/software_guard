@@ -1,8 +1,24 @@
 <template>
   <div>
     <a-typography-title>系统配置</a-typography-title>
-    
-    <a-card title="存储配置">
+
+    <a-card title="站点配置">
+      <a-form :model="siteConfig" layout="vertical">
+        <a-form-item label="站点名称">
+          <a-input v-model:value="siteConfig.site_name" placeholder="如: Software Guard" />
+          <span style="color: #999; font-size: 12px;">显示在登录页、导航栏和浏览器标题栏</span>
+        </a-form-item>
+        <a-form-item label="站点描述">
+          <a-input v-model:value="siteConfig.site_description" placeholder="如: 公司内网软件下载站" />
+          <span style="color: #999; font-size: 12px;">显示在登录页副标题和页脚</span>
+        </a-form-item>
+        <a-form-item>
+          <a-button type="primary" @click="updateSiteConfig">保存</a-button>
+        </a-form-item>
+      </a-form>
+    </a-card>
+
+    <a-card title="存储配置" style="margin-top: 16px;">
       <a-form :model="storageConfig" layout="vertical">
         <a-form-item label="存储目录">
           <a-input v-model:value="storageConfig.storage_path" placeholder="请输入存储目录路径" />
@@ -110,6 +126,14 @@
 import { ref, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
 import { configApi } from '@/api/config'
+import { useSiteStore } from '@/stores/site'
+
+const siteStore = useSiteStore()
+
+const siteConfig = ref({
+  site_name: '',
+  site_description: ''
+})
 
 const storageConfig = ref({
   storage_path: ''
@@ -150,6 +174,16 @@ const loadConfigs = async () => {
     
     // 加载存储配置
     const storagePathConfig = configs.find(c => c.key === 'storage_path')
+    if (storagePathConfig) {
+      storageConfig.value.storage_path = storagePathConfig.value
+    }
+
+    // 加载站点配置
+    const siteName = configs.find(c => c.key === 'site_name')
+    if (siteName) siteConfig.value.site_name = siteName.value
+
+    const siteDesc = configs.find(c => c.key === 'site_description')
+    if (siteDesc) siteConfig.value.site_description = siteDesc.value
     if (storagePathConfig) {
       storageConfig.value.storage_path = storagePathConfig.value
     }
@@ -203,6 +237,18 @@ const loadConfigs = async () => {
     if (ldapDefaultRole) ldapConfig.value.ldap_default_role = ldapDefaultRole.value
   } catch (error) {
     message.error('加载配置失败')
+  }
+}
+
+const updateSiteConfig = async () => {
+  try {
+    await _saveConfigItem('site_name', siteConfig.value.site_name, '站点名称')
+    await _saveConfigItem('site_description', siteConfig.value.site_description, '站点描述')
+    siteStore.setName(siteConfig.value.site_name)
+    siteStore.setDescription(siteConfig.value.site_description)
+    message.success('站点配置更新成功')
+  } catch (error) {
+    message.error('站点配置更新失败')
   }
 }
 

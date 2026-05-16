@@ -12,4 +12,9 @@ app.use(pinia)
 app.use(router)
 app.use(Antd)
 
+// 加载站点配置
+import { useSiteStore } from './stores/site'
+const siteStore = useSiteStore()
+siteStore.load()
+
 app.mount('#app')

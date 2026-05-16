@@ -2,8 +2,8 @@
   <div class="login-container">
     <div class="login-box">
       <div class="login-header">
-        <h1>Software Guard</h1>
-        <p>公司内网软件下载站</p>
+        <h1>{{ siteStore.name }}</h1>
+        <p>{{ siteStore.description }}</p>
       </div>
       <a-form
         :model="loginForm"
@@ -62,9 +62,11 @@ import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { useSiteStore } from '@/stores/site'
 
 const router = useRouter()
 const userStore = useUserStore()
+const siteStore = useSiteStore()
 
 const loginForm = ref({
   username: '',

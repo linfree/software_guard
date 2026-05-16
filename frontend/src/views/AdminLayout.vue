@@ -5,7 +5,7 @@
       <div class="header-left">
         <div class="logo" @click="$router.push('/')">
           <AppstoreOutlined />
-          <span>Software Guard</span>
+          <span>{{ siteStore.name }}</span>
           <a-tag color="blue" size="small" style="margin-left: 8px">管理后台</a-tag>
         </div>
       </div>
@@ -110,10 +110,12 @@ import {
   TagsOutlined
 } from '@ant-design/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { useSiteStore } from '@/stores/site'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const siteStore = useSiteStore()
 
 const selectedKeys = ref(['dashboard'])
 const openKeys = ref([])
