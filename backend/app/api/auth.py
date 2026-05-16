@@ -10,6 +10,7 @@ from ..core.database import get_db
 from ..core.security import verify_password, get_password_hash, create_access_token
 from ..core.deps import get_current_active_user, require_ops, get_optional_current_user
 from ..core.config import settings
+from ..core.ldap import ldap_authenticate
 from ..models.user import User, UserRole
 from ..schemas.user import UserCreate, UserLogin, UserResponse, Token
 
@@ -106,7 +107,19 @@ async def login(
     _check_rate_limit(request.client.host if request.client else "unknown", db)
     user = db.query(User).filter(User.username == form_data.username).first()
 
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    authenticated = False
+    if user and getattr(user, 'auth_source', 'local') == 'local':
+        # 本地账号走本地密码验证
+        if verify_password(form_data.password, user.hashed_password):
+            authenticated = True
+    else:
+        # LDAP 用户或本地无此用户，尝试 LDAP 认证
+        ldap_user = ldap_authenticate(form_data.username, form_data.password, db)
+        if ldap_user:
+            user = ldap_user
+            authenticated = True
+
+    if not authenticated or not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户名或密码错误",
@@ -139,3 +152,33 @@ async def login(
 async def get_current_user_info(current_user: User = Depends(get_current_active_user)):
     """获取当前用户信息"""
     return current_user
+
+
+@router.get("/ldap/test")
+async def test_ldap_connection(
+    current_user: User = Depends(require_ops),
+    db: Session = Depends(get_db)
+):
+    """测试 LDAP 连接"""
+    from ..core.ldap import _get_ldap_config
+    from ldap3 import Server, Connection, ALL
+
+    config = _get_ldap_config(db)
+    server_url = config.get("ldap_server_url", "").strip()
+    bind_dn = config.get("ldap_bind_dn", "").strip()
+    bind_password = config.get("ldap_bind_password", "").strip()
+
+    if not server_url:
+        raise HTTPException(status_code=400, detail="未配置 LDAP 服务器地址")
+
+    try:
+        server = Server(server_url, get_info=ALL, connect_timeout=10)
+        if bind_dn and bind_password:
+            conn = Connection(server, user=bind_dn, password=bind_password, auto_bind=True, receive_timeout=10)
+        else:
+            conn = Connection(server, auto_bind=True, receive_timeout=10)
+        info = server.info
+        conn.unbind()
+        return {"success": True, "message": f"已连接到 {info.other.get('serverName', [server_url])[0] if info and info.other else server_url}"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"连接失败: {str(e)}")

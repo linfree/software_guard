@@ -64,6 +64,45 @@
         </a-form-item>
       </a-form>
     </a-card>
+
+    <a-card title="LDAP/AD 认证配置" style="margin-top: 16px;">
+      <a-form :model="ldapConfig" layout="vertical">
+        <a-form-item label="启用 LDAP 认证">
+          <a-switch v-model:checked="ldapConfig.ldap_enabled" />
+          <span style="margin-left: 8px; color: #999;">启用后，用户可使用企业域账号登录</span>
+        </a-form-item>
+        <a-form-item label="服务器地址">
+          <a-input v-model:value="ldapConfig.ldap_server_url" placeholder="如: ldap://dc1.company.com:389" />
+        </a-form-item>
+        <a-form-item label="绑定账号 DN">
+          <a-input v-model:value="ldapConfig.ldap_bind_dn" placeholder="如: CN=svc_ldap,OU=Service,DC=company,DC=com" />
+        </a-form-item>
+        <a-form-item label="绑定账号密码">
+          <a-input-password v-model:value="ldapConfig.ldap_bind_password" placeholder="用于搜索用户的绑定账号密码" />
+        </a-form-item>
+        <a-form-item label="用户搜索基础 DN">
+          <a-input v-model:value="ldapConfig.ldap_base_dn" placeholder="如: OU=Users,DC=company,DC=com" />
+        </a-form-item>
+        <a-form-item label="用户搜索过滤器">
+          <a-input v-model:value="ldapConfig.ldap_user_filter" placeholder="(sAMAccountName={username})" />
+          <span style="margin-left: 8px; color: #999;">用 {username} 代表登录时输入的用户名</span>
+        </a-form-item>
+        <a-form-item label="新用户默认角色">
+          <a-select v-model:value="ldapConfig.ldap_default_role" style="width: 200px;">
+            <a-select-option value="user">普通用户</a-select-option>
+            <a-select-option value="ops">运维人员</a-select-option>
+            <a-select-option value="admin">管理员</a-select-option>
+          </a-select>
+          <span style="margin-left: 8px; color: #999;">LDAP 新用户首次登录时分配的角色</span>
+        </a-form-item>
+        <a-form-item>
+          <a-space>
+            <a-button type="primary" @click="updateLdapConfig">保存</a-button>
+            <a-button @click="testLdapConnection" :loading="ldapTesting">测试连接</a-button>
+          </a-space>
+        </a-form-item>
+      </a-form>
+    </a-card>
   </div>
 </template>
 
@@ -92,6 +131,18 @@ const securityConfig = ref({
 const uploadConfig = ref({
   max_upload_size_gb: 3
 })
+
+const ldapConfig = ref({
+  ldap_enabled: false,
+  ldap_server_url: '',
+  ldap_bind_dn: '',
+  ldap_bind_password: '',
+  ldap_base_dn: '',
+  ldap_user_filter: '(sAMAccountName={username})',
+  ldap_default_role: 'user'
+})
+
+const ldapTesting = ref(false)
 
 const loadConfigs = async () => {
   try {
@@ -128,6 +179,28 @@ const loadConfigs = async () => {
 
     const maxUploadSize = configs.find(c => c.key === 'max_upload_size')
     if (maxUploadSize) uploadConfig.value.max_upload_size_gb = parseInt(maxUploadSize.value) / (1024 * 1024 * 1024)
+
+    // 加载 LDAP 配置
+    const ldapEnabled = configs.find(c => c.key === 'ldap_enabled')
+    if (ldapEnabled) ldapConfig.value.ldap_enabled = ldapEnabled.value.toLowerCase() === 'true'
+
+    const ldapServerUrl = configs.find(c => c.key === 'ldap_server_url')
+    if (ldapServerUrl) ldapConfig.value.ldap_server_url = ldapServerUrl.value
+
+    const ldapBindDn = configs.find(c => c.key === 'ldap_bind_dn')
+    if (ldapBindDn) ldapConfig.value.ldap_bind_dn = ldapBindDn.value
+
+    const ldapBindPassword = configs.find(c => c.key === 'ldap_bind_password')
+    if (ldapBindPassword) ldapConfig.value.ldap_bind_password = ldapBindPassword.value
+
+    const ldapBaseDn = configs.find(c => c.key === 'ldap_base_dn')
+    if (ldapBaseDn) ldapConfig.value.ldap_base_dn = ldapBaseDn.value
+
+    const ldapUserFilter = configs.find(c => c.key === 'ldap_user_filter')
+    if (ldapUserFilter) ldapConfig.value.ldap_user_filter = ldapUserFilter.value
+
+    const ldapDefaultRole = configs.find(c => c.key === 'ldap_default_role')
+    if (ldapDefaultRole) ldapConfig.value.ldap_default_role = ldapDefaultRole.value
   } catch (error) {
     message.error('加载配置失败')
   }
@@ -272,6 +345,57 @@ const updateUploadConfig = async () => {
     message.success('上传配置更新成功')
   } catch (error) {
     message.error('上传配置更新失败')
+  }
+}
+
+const _saveConfigItem = async (key, value, description) => {
+  try {
+    await configApi.get(key)
+    await configApi.update(key, { value, description })
+  } catch (error) {
+    if (error.response?.status === 404) {
+      await configApi.create({ key, value, description })
+    }
+  }
+}
+
+const updateLdapConfig = async () => {
+  try {
+    const items = [
+      { key: 'ldap_enabled', value: ldapConfig.value.ldap_enabled.toString(), desc: '是否启用 LDAP 认证' },
+      { key: 'ldap_server_url', value: ldapConfig.value.ldap_server_url, desc: 'LDAP 服务器地址' },
+      { key: 'ldap_bind_dn', value: ldapConfig.value.ldap_bind_dn, desc: 'LDAP 绑定账号 DN' },
+      { key: 'ldap_bind_password', value: ldapConfig.value.ldap_bind_password, desc: 'LDAP 绑定账号密码' },
+      { key: 'ldap_base_dn', value: ldapConfig.value.ldap_base_dn, desc: 'LDAP 用户搜索基础 DN' },
+      { key: 'ldap_user_filter', value: ldapConfig.value.ldap_user_filter, desc: 'LDAP 用户搜索过滤器' },
+      { key: 'ldap_default_role', value: ldapConfig.value.ldap_default_role, desc: 'LDAP 新用户默认角色' }
+    ]
+    for (const item of items) {
+      await _saveConfigItem(item.key, item.value, item.desc)
+    }
+    message.success('LDAP 配置更新成功')
+  } catch (error) {
+    message.error('LDAP 配置更新失败')
+  }
+}
+
+const testLdapConnection = async () => {
+  ldapTesting.value = true
+  try {
+    await updateLdapConfig()
+    const res = await fetch('/api/auth/ldap/test', {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    })
+    const data = await res.json()
+    if (res.ok && data.success) {
+      message.success(`连接成功: ${data.message || 'LDAP 服务器可达'}`)
+    } else {
+      message.error(`连接失败: ${data.detail || '未知错误'}`)
+    }
+  } catch (error) {
+    message.error('连接测试失败: ' + (error.message || '未知错误'))
+  } finally {
+    ldapTesting.value = false
   }
 }
 

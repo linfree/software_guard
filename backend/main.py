@@ -39,6 +39,15 @@ async def lifespan(app: FastAPI):
             if 'token_version' not in columns:
                 conn.execute(text('ALTER TABLE users ADD COLUMN token_version INTEGER DEFAULT 0'))
                 conn.commit()
+            if 'auth_source' not in columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN auth_source VARCHAR(10) DEFAULT 'local'"))
+                conn.commit()
+            # 兼容：如果 inspector 缓存导致遗漏，用 try/except 兜底
+            try:
+                conn.execute(text("ALTER TABLE users ADD COLUMN auth_source VARCHAR(10) DEFAULT 'local'"))
+                conn.commit()
+            except Exception:
+                pass
 
     # 创建初始管理员账号（如果不存在）
     from app.core.database import SessionLocal
